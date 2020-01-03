@@ -1,0 +1,191 @@
+// -*-C++-*-
+
+/* Purpose: NCO/ncap2 script to process and calibrate Terraref exposure data
+
+   Requirements: NCO version 4.6.2 (dated 20161116) or later
+
+   Documentation:
+   https://docs.google.com/document/d/1w_zHHlrPVKsy1mnW9wrVzAU2edVqZH8i1IZa5BZxVpo/edit#heading=h.jjfbhbos05cc # Calibration employed since 20160908
+   https://github.com/terraref/computing-pipeline/issues/88 # Calibration employed until 20160908
+
+   Usage:
+   ncap2 -v -O -S ~/terraref/extractors-hyperspectral/hyperspectral/hyperspectral_calibration.nco ${DATA}/terraref/whiteReference_raw.nc ~/foo.nc */
+
+
+
+// Declare flags as RAM variables or they will clutter output file
+*flg_vnir=0s; // [flg] VNIR image
+*flg_swir=0s; // [flg] SWIR image
+
+// flg_typ 1 - production  2 - test 
+if (!exists(flg_typ)) *flg_typ=1; // [enm] Run type
+
+
+// Defaults for values not provided on command-line
+if(!exists(clb_nbr)) *clb_nbr=73; // [nbr] Calibration number
+//if(!exists(drc_spt)) *drc_spt="."; // [sng] Script directory
+
+// Change hyperspectral camera wavelengths from nm to m (SI)
+// wavelength*=1.0e-9; // [m]
+// wavelength@standard_name="radiation_wavelength";  
+// wavelength@units="meter";  
+
+/* 20161005 Set flags to separate VNIR from SWIR code when necessary */
+if(min(wavelength) < 0.5e-6){
+  flg_vnir=1s;
+  *x_pxl_spc=0.001025; // [m]
+  @camera="VNIR Camera";
+ }else{
+  flg_swir=1s;
+  *x_pxl_spc=0.001930615052; // [m]
+  @camera="SWIR Camera";
+ } // !wavelength
+
+
+
+
+// Compute quality control diagnostics (also used in "guesstimate" calibration)
+*xps_img_max=xps_img.max($y,$x);
+xps_img_max@long_name="Maximum image exposure at each wavelength";
+xps_img_max@units="Counts on scale from 0 to 2^16-1 = 65535";
+
+*xps_img_min=xps_img.min($y,$x);
+xps_img_min@long_name="Minimum image exposure at each wavelength";
+xps_img_min@units="Counts on scale from 0 to 2^16-1 = 65535";
+
+// [W m-2 m-1] Downwelling spectral irradiance
+// 20160908 This is a placeholder for irradiance on the hyperspectral grid 
+// Currently no instrument measures this
+// The only irradiance measured in by the Environmental Logger, which has a different (and non-overlapping) spectral grid
+//flx_dwn[wavelength]=2.0e9f;
+//flx_dwn@long_name="Downwelling spectral irradiance";
+//flx_dwn@standard_name="surface_downwelling_radiative_flux_per_unit_wavelength_in_air";
+//flx_dwn@units="watt meter-2 meter-1"; 
+
+// Input factory calibrated Spectralon reflectance from NCO file in script directory
+//@fl_clb=push(@drc_spt,"/hyperspectral_spectralon_reflectance_factory.nco");
+//print(@fl_clb," = %s\n");
+// Directory containing this file must be CWD or in NCO_PATH environment variable
+#include "hyperspectral_spectralon_reflectance_factory.nco"
+
+/* Interpolate factory calibration of Spectralon target to wavelength grid of current instrument (VNIR, SWIR) */
+gsl_interp_cspline(&ram_ntp_spl,wvl_clb,factory_calibrated_reflectance);
+*factory_calibrated_reflectance_interpolated=float(gsl_spline_eval(ram_ntp_spl,wavelength));
+ram_delete(ram_ntp_spl);
+
+if(flg_swir){
+  // As of 20161114, SWIR calibration data are insufficient, so implement "guesstimate" method
+  
+  /* Calibrate hyperspectral image from raw counts to reflectance
+     Optimal calibration would have this equal 2^16-1 in each channel for a perfectly white reflector
+     This parameter depends solely on the bit-resolution of the camera (currently 16 bits) */
+  *exposure_theoretical_maximum=ushort(2^16-1); // [cnt]
+
+  /* Assume spectral reference target employed is "white" reference sheet that reflects all wavelengths with 95% efficiency
+     (Some) Documentation for Spectralon reference targets at
+     https://github.com/terraref/reference-data/issues/36
+     https://github.com/terraref/reference-data/issues/53
+
+     20160927: fxm replace guesstimate with actual, wavelength-dependent calibrated reflectance below */
+  *factory_calibrated_reflectance_guesstimate=0.95f; // [frc]
+
+  /* exposure_reference is exposure measured when pointing at Spectralon reference target
+     Camera exposed to natural light reflecting from reference target for standard exposure time accumulates exposure_reference counts in each channel
+     Expected to be large fraction (assumed here to be factory_calibrated_reflectance_guesstimate) of exposure_theoretical_maximum for white reflector 
+     However, grey reference reflector might be more optimal than white
+     Plants have maximum reflectance of ~0.4 so calibrating at white (~0.95) not as accurate as calibrating near 0.4 
+     We hope Lemnatec tunes exposure time to achieve the greatest dynamic range, and thus precision, under a wide range of circumstances
+     One tuning consideration is that maximum exposure for white reflector at noon is close to but does not exceed exposure_theoretical_maximum 
+     Other tuning considerations are possible... */
+  // 20160908: actual values are not yet available so use this guesstimate
+  *exposure_reference_guesstimate=ushort(factory_calibrated_reflectance_guesstimate*exposure_theoretical_maximum); // [cnt]
+  *maximum_plant_reflectance_guesstimate=0.37f; // [frc]
+
+  // A perfect detector would measure no counts when aperture shut
+  *exposure_theoretical_minimum=ushort(0); // [cnt]
+
+  // A real detector exposed to darkness for standard exposure time accumulates exposure_dark counts in each channel
+  // 20160908: actual values are not yet available for SWIR so we use this guesstimate
+  *exposure_dark_guesstimate=ushort(10); // [cnt]
+
+  // [cnt] Exposure from Spectralon reference target
+  //if(flg_swir) xps_img_wht[wavelength]=exposure_reference_guesstimate; // Produces reflectances too small by ~10^5
+  *xps_img_wht[wavelength]=ushort(xps_img_max*(factory_calibrated_reflectance_guesstimate/maximum_plant_reflectance_guesstimate));
+  xps_img_wht@long_name="Exposure from Spectralon reference target";
+  xps_img_wht@units="Counts on scale from 0 to 2^16-1 = 65535";
+
+  // [cnt] Exposure under dark (nighttime) conditions
+  *xps_img_drk[wavelength]=xps_img_min*0.01f;
+  xps_img_drk@long_name="Exposure under dark (nighttime) conditions";
+  xps_img_drk@units="Counts on scale from 0 to 2^16-1 = 65535";
+
+  *rfl_rfr_fct[wavelength]=factory_calibrated_reflectance_guesstimate;
+  rfl_rfr_fct@long_name="Reflectance of Spectralon reference target (from factory calibration)";
+  rfl_rfr_fct@units="1";
+
+
+} // !flg_swir
+
+if(flg_vnir){
+
+  // [frc] Reflectance of Spectralon reference target (from factory calibration)
+  // 20160908: Add angular dependence?
+  *rfl_rfr_fct[wavelength]=factory_calibrated_reflectance_interpolated;
+  rfl_rfr_fct@long_name="Reflectance of Spectralon reference target (from factory calibration)";
+  rfl_rfr_fct@units="1";
+
+ } //flg_vnir
+
+// [frc] = Reflectance of image (plant reflectance)
+// 20160826: Pre-assigning to zero would create additional copy and increase required memory
+// Instead use implicit casting, and overwrite attributes propagated from rfl_rfr_fct
+//rfl_img[wavelength,y,x]=0.0f;
+//rfl_img=rfl_rfr_fct*(xps_img-xps_img_drk)/(xps_img_wht-xps_img_drk);
+// changed order of operations to reduce to two the number of expensive recasts 
+rfl_img= (rfl_rfr_fct/(xps_img_wht-xps_img_drk))*(xps_img-xps_img_drk);
+
+rfl_img@long_name="Reflectance of image";
+rfl_img@standard_name="surface_albedo";
+rfl_img@units="1";
+  
+// Compute quality control diagnostics
+*rfl_img_max=rfl_img.max($y,$x);
+rfl_img_max@long_name="Maximum reflectance at each wavelength";
+rfl_img_max@units="1";
+
+*rfl_img_min=rfl_img.min($y,$x);
+rfl_img_min@long_name="Minimum reflectance at each wavelength";
+rfl_img_min@units="1";
+
+
+if(flg_typ == 1){
+
+  ram_delete(factory_calibrated_reflectance_interpolated);
+  ram_delete(rfl_rfr_fct);
+  ram_delete(rfl_img_min);
+  ram_delete(rfl_img_max);
+  ram_delete(xps_img_min);
+  ram_delete(xps_img_max);
+
+
+
+}else if(flg_typ == 2){
+
+  ram_write(factory_calibrated_reflectance_interpolated);
+  ram_write(rfl_rfr_fct);
+  ram_write(rfl_img_min);
+  ram_write(rfl_img_max);
+  ram_write(xps_img_min);
+  ram_write(xps_img_max);
+
+
+  ram_write(xps_img_wht);
+  ram_write(xps_img_drk);
+  xps_img_wht=xps_img_wht;
+  xps_img_drk=xps_img_drk;
+
+  xps_img=xps_img;
+
+  
+
+}

@@ -1,0 +1,14 @@
+curl
+bzip2
+libpng-dev
+libfreetype6-dev
+python-matplotlib
+libudunits2-dev
+python3-dev
+libnetcdf-dev
+nco
+libc6-dev
+libxerces-c-dev
+libgeos-dev
+libudunits2-dev
+gcc

@@ -1,0 +1,6 @@
+setuptools
+pika
+psutil
+spectral
+h5py
+netCDF4
