@@ -317,8 +317,8 @@ class __internal__():
         # compute the absolute difference between
         logging.info('Computing mean spectrum')
         abs_diff_time = np.zeros((len(envlog_tot_time)))
-        for k in range(len(envlog_tot_time)):
-            abs_diff_time[k] = abs(image_time - envlog_tot_time[k])
+        for time_key, time_value in enumerate(envlog_tot_time):
+            abs_diff_time[time_key] = abs(image_time - time_value)
         ind_closet_time = np.argmin(abs_diff_time)  # closest time index
         mean_spectrum = np.mean(envlog_spectra[ind_closet_time: ind_closet_time + num_irridiance_record-1, :], axis=0)
         del envlog_spectra
@@ -434,7 +434,8 @@ def perform_process(transformer: transformer_class.Transformer, check_md: dict, 
         logging.exception(msg)
         return {'code': -1004, 'error': msg}
 
-    file_md = [{
+    file_md = [
+        {
             'path': out_filename,
             'key': transformer.args.sensor,
             'metadata': {
@@ -443,8 +444,7 @@ def perform_process(transformer: transformer_class.Transformer, check_md: dict, 
                 'version': configuration.TRANSFORMER_VERSION,
                 'timestamp': datetime.datetime.utcnow().isoformat()
             }
-        },
-        {
+        }, {
             'path': xps_filename,
             'key': transformer.args.sensor,
             'metadata': {
@@ -453,8 +453,7 @@ def perform_process(transformer: transformer_class.Transformer, check_md: dict, 
                 'version': configuration.TRANSFORMER_VERSION,
                 'timestamp': datetime.datetime.utcnow().isoformat()
             }
-        },
-        {
+        }, {
             'path': calibration_filename,
             'key': transformer.args.sensor,
             'metadata': {

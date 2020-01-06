@@ -31,25 +31,6 @@ RUN [ -s /home/extractor/requirements.txt ] && \
 
 USER extractor
 
-#RUN cd ~ \
-#    && curl https://repo.continuum.io/archive/Anaconda3-2019.03-Linux-x86_64.sh > Anaconda3-2019.03-Linux-x86_64.sh \
-#    && bash Anaconda3-2019.03-Linux-x86_64.sh -b
-#
-##install conda-forge packages
-#RUN ~/anaconda3/bin/conda config --add channels conda-forge \
-#    && ~/anaconda3/bin/conda config --set allow_conda_downgrades true
-#
-#RUN ~/anaconda3/bin/conda install -y \
-#         libnetcdf \
-#         hdf5 \
-#         netcdf4 \
-#         nco \
-#         "gdal>2.2.4" \
-#         libiconv \
-#         xerces-c \
-#         geos \
-#         udunits2
-
 COPY calibration /home/extractor/calibration
 COPY calibration_939 /home/extractor/calibration_939
 COPY calibration_new /home/extractor/calibration_new
