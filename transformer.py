@@ -2,6 +2,7 @@
 """
 
 import argparse
+import datetime
 import json
 import logging
 import os
@@ -12,10 +13,10 @@ import psutil
 from netCDF4 import Dataset
 import spectral.io.envi as envi
 
+import configuration
 import transformer_class
 
 CALIB_ROOT = "/home/extractor"
-
 
 class __internal__():
     """Class for internal use only functions
@@ -392,6 +393,8 @@ def perform_process(transformer: transformer_class.Transformer, check_md: dict, 
         Returns a dictionary with the results of processing
     """
     # pylint: disable=unused-argument
+    start_timestamp = datetime.datetime.now()
+
     (raw_filename) = __internal__.get_needed_files(check_md['list_files']())
     if not raw_filename:
         return {'code': -1000, 'error': "A RAW file was not found in the provided list"}
@@ -431,5 +434,44 @@ def perform_process(transformer: transformer_class.Transformer, check_md: dict, 
         logging.exception(msg)
         return {'code': -1004, 'error': msg}
 
-    return {'code': 0
+    file_md = [{
+            'path': out_filename,
+            'key': transformer.args.sensor,
+            'metadata': {
+                'source': raw_filename,
+                'transformer': configuration.TRANSFORMER_NAME,
+                'version': configuration.TRANSFORMER_VERSION,
+                'timestamp': datetime.datetime.utcnow().isoformat()
+            }
+        },
+        {
+            'path': xps_filename,
+            'key': transformer.args.sensor,
+            'metadata': {
+                'source': raw_filename,
+                'transformer': configuration.TRANSFORMER_NAME,
+                'version': configuration.TRANSFORMER_VERSION,
+                'timestamp': datetime.datetime.utcnow().isoformat()
+            }
+        },
+        {
+            'path': calibration_filename,
+            'key': transformer.args.sensor,
+            'metadata': {
+                'source': raw_filename,
+                'transformer': configuration.TRANSFORMER_NAME,
+                'version': configuration.TRANSFORMER_VERSION,
+                'timestamp': datetime.datetime.utcnow().isoformat()
+            }
+        }
+    ]
+
+    return {'code': 0,
+            'file': file_md,
+            configuration.TRANSFORMER_NAME:
+            {
+                'utc_timestamp': datetime.datetime.utcnow().isoformat(),
+                'processing_time': str(datetime.datetime.now() - start_timestamp),
+                'sensor': transformer.args.sensor
+            }
             }

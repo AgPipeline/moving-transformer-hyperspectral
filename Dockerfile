@@ -50,9 +50,9 @@ USER extractor
 #         geos \
 #         udunits2
 
-COPY *.py *.nc *.nco *.sh /home/extractor/
 COPY calibration /home/extractor/calibration
 COPY calibration_939 /home/extractor/calibration_939
 COPY calibration_new /home/extractor/calibration_new
+COPY *.py *.nc *.nco *.sh /home/extractor/
 
 ENV PATH="/home/extractor:${PATH}"

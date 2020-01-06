@@ -20,11 +20,16 @@ The implementation is undergoing improvement (e.g., better target calibrations, 
 Also read about the [limitations](#limitations) of the implementation.
 
 ## Sample Docker Command Line
+Note that processing hyperspectral data can consume a large amount of memory and disk space.
+We recommend 64GiB of memory and at least 30GiB of available disk space.
+
 Below is a sample command line that shows how the hyperspectral Docker image could be run.
 An explanation of the command line options used follows.
 Be sure to read up on the [docker run](https://docs.docker.com/engine/reference/run/) command line for more information.
 
-```docker run --rm --mount "source=/home/test,target=/mnt,type=bind" -e "BETYDB_URL=<BETYdb URL>" -e "BETYDB_KEY=<BETYdb Key>" agpipeline/hyperspectral:3.0 --metadata /mnt/f46c9e11-de52-40ca-8258-c64427f877f0_metadata_cleaned.json --working_space /mnt --date_override "2019-03-31" --skip_memory_check --environment_logger /mnt/2019-03-31 VNIR /mnt/f46c9e11-de52-40ca-8258-c64427f877f0_raw```
+The data used in this example can be found on [Google Drive](https://drive.google.com/open?id=1-sOpUrBqLxZDCqvBLa8KJ4WjPkDdSb-5) as a compressed tar file.
+
+```docker run --rm --mount "source=/home/test,target=/mnt,type=bind" -e "BETYDB_URL=<BETYdb URL>" -e "BETYDB_KEY=<BETYdb Key>" agpipeline/hyperspectral:3.0 --metadata /mnt/f46c9e11-de52-40ca-8258-c64427f877f0_metadata_cleaned.json --working_space /mnt --date_override "2019-03-31" --environment_logger /mnt/2019-03-31 VNIR /mnt/f46c9e11-de52-40ca-8258-c64427f877f0_raw```
 
 This example command line assumes the source files are located in the `/home/test` folder of the local machine.
 The name of the image to run is `agpipeline/hyperspectral:3.0`.
@@ -50,7 +55,6 @@ Note that the paths provided are relative to the running image (see the --mount 
 - `--working_space "/mnt"` specifies the folder to use as a workspace
 - `--metadata "/mnt/f46c9e11-de52-40ca-8258-c64427f877f0_metadata_cleaned.json"` is the name of the cleaned metadata
 - `--date_override "2019-03-31"` optional override for the capture date used to inform the algorithm on sensor properties
-- `--skip_memory_check` skips the check for sufficient available memory; default behavior is to stop when insufficient memory is detected
 - `--environment_logger /mnt/2019-03-31` the folder containing EnvironmentLogger files
 - `VNIR` specifies that we're processing VNIR files
 - `/mnt/f46c9e11-de52-40ca-8258-c64427f877f0_raw` the RAW file to be processed 

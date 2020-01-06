@@ -740,7 +740,7 @@ for ((fl_idx = 0; fl_idx < ${fl_nbr}; fl_idx++)); do
       dbg_cmd="dbg=no" # Quiet
     fi # !dbg
 
-    cmd_jsn[${fl_idx}]="python ${drc_spt}/hyperspectral_metadata.py ${dbg_cmd} ${fmt_cmd} ${ftn_cmd} ${jsn_in} ${jsn_out}"
+    cmd_jsn[${fl_idx}]="python3 ${drc_spt}/hyperspectral_metadata.py ${dbg_cmd} ${fmt_cmd} ${ftn_cmd} ${jsn_in} ${jsn_out}"
     if [ ${dbg_lvl} -ge 1 ]; then
       echo ${cmd_jsn[${fl_idx}]}
     fi # !dbg
@@ -1198,7 +1198,7 @@ verbosity=2
 if [ ${dbg_lvl} -eq 0 ]; then
   verbosity=0
 fi # !dbg_lvl
-cmd_qaqc="python ${drc_spt}/hyperspectral_test.py ${out_fl} ${verbosity}"
+cmd_qaqc="python3 ${drc_spt}/hyperspectral_test.py ${out_fl} ${verbosity}"
 eval ${cmd_qaqc}
 if [ $? -ne 0 ]; then
   printf "QA/QC check found with 1 or more unexpected FAILURES\n"
